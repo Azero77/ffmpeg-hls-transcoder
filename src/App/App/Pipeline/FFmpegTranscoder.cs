@@ -1,12 +1,14 @@
+using Amazon.Runtime.Internal.Util;
 using App.Interfaces;
 using App.Models;
 using CliWrap;
 using CliWrap.Builders;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 namespace App.Pipeline;
 
-public class FFmpegTranscoder(IOptions<TranscoderOptions> options) : ITranscoder
+public class FFmpegTranscoder(IOptions<TranscoderOptions> options, ILogger<FFmpegTranscoder> logger) : ITranscoder
 {
     public async Task EncodeAsync(string inputFile, string outputDirectory, IReadOnlyCollection<Rendition> renditions, CancellationToken ct)
     {
@@ -18,6 +20,7 @@ public class FFmpegTranscoder(IOptions<TranscoderOptions> options) : ITranscoder
         {
             await Cli.Wrap(options.Value.FFmpegBinaryPath)
                 .WithArguments((Action<ArgumentsBuilder>)GenerateArgs)
+                .WithStandardErrorPipe(PipeTarget.ToDelegate(line => logger.LogDebug("[FFMPEG] {line}",line)))
                 .ExecuteAsync(token);
             return;
 
@@ -42,7 +45,7 @@ public class FFmpegTranscoder(IOptions<TranscoderOptions> options) : ITranscoder
                     .Add("-bufsize")
                     .Add($"{r.MaxBitrate * 2}k")
                     .Add("-vf")
-                    .Add($"scale=w={r.Width}:h={r.Height}:force_original_aspect_ratio=decrease")
+                    .Add($"scale=w={r.Width}:h={r.Height}:force_original_aspect_ratio=decrease,pad=ceil(iw/2)*2:ceil(ih/2)*2")
                     .Add("-pix_fmt")
                     .Add("yuv420p")
                     .Add("-c:a")
