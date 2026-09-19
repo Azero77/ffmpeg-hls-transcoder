@@ -4,5 +4,5 @@ namespace App.Interfaces;
 
 public interface ITranscodingPipeline
 {
-    Task ExecuteAsync(TranscodingJobInput input, CancellationToken ct);
+    Task<ExitReason> ExecuteAsync(TranscodingJobInput input, CancellationToken ct);
 }

@@ -1,11 +1,10 @@
 namespace App.Models;
 
-public record Rendition(
+public sealed record Rendition(
     int Resolution,
     byte Crf,
     int MaxBitrate,
     int Width,
     int Height,
-    string OutFile
-    );
-    
+    string NameModifier,
+    string OutFile);

@@ -6,16 +6,17 @@ using Microsoft.Extensions.Options;
 
 namespace App.Pipeline;
 
-public class FFmpegTranscoder(IOptions<TranscodingOptions> options) : ITranscoder
+public class FFmpegTranscoder(IOptions<TranscoderOptions> options) : ITranscoder
 {
     public async Task EncodeAsync(string inputFile, string outputDirectory, IReadOnlyCollection<Rendition> renditions, CancellationToken ct)
     {
         //input is the full path of source.mp4
         //output is the full path of Intermediates/{then 1080-720-360.....} with just encoded files without segments, then shaka packager will handle segmentation
+        Directory.CreateDirectory(outputDirectory);
         var maxEncoders = options.Value.MaxEncoders;
         await Parallel.ForEachAsync(renditions, new ParallelOptions() { CancellationToken = ct , MaxDegreeOfParallelism = maxEncoders},async (r, token) =>
         {
-            await Cli.Wrap("ffmpeg")
+            await Cli.Wrap(options.Value.FFmpegBinaryPath)
                 .WithArguments((Action<ArgumentsBuilder>)GenerateArgs)
                 .ExecuteAsync(token);
             return;

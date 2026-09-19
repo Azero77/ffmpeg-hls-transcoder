@@ -1,0 +1,24 @@
+{
+  "videoId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "tenantId": "11111111-2222-3333-4444-555555555555",
+  "sourcePath": "/path/to/source-video.mp4",
+  "outputPrefix": "/path/to/output",
+  "sourceMetadata": {
+    "sourceWidth": 1920,
+    "sourceHeight": 1080,
+    "duration": "00:05:00"
+  },
+  "encryptionMethod": "None",
+  "thumbnailRelativeUrl": null,
+  "settings": {
+    "outputs": [
+      { "width": 1920, "height": 1080, "maxBitrateKbps": 6000, "qvbrQualityLevel": 7, "nameModifier": "_1080p" },
+      { "width": 1280, "height": 720,  "maxBitrateKbps": 3500, "qvbrQualityLevel": 7, "nameModifier": "_720p" },
+      { "width": 854,  "height": 480,  "maxBitrateKbps": 1500, "qvbrQualityLevel": 7, "nameModifier": "_480p" },
+      { "width": 640,  "height": 360,  "maxBitrateKbps": 800,  "qvbrQualityLevel": 7, "nameModifier": "_360p" }
+    ],
+    "segmentLengthSeconds": 6,
+    "fragmentLengthSeconds": 2,
+    "audio": { "codec": "aac", "bitrateKbps": 128, "sampleRate": 44100 }
+  }
+}
