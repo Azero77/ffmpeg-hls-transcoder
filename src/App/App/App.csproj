@@ -17,12 +17,10 @@
     </ItemGroup>
 
     <ItemGroup>
+      <PackageReference Include="AWSSDK.Extensions.NETCore.Setup" Version="4.0.101.4" />
+      <PackageReference Include="AWSSDK.S3" Version="4.0.103.3" />
       <PackageReference Include="CliWrap" Version="3.10.5" />
       <PackageReference Include="Microsoft.Extensions.Hosting" Version="11.0.0-rc.1.26425.128" />
-    </ItemGroup>
-
-    <ItemGroup>
-      <Folder Include="Pipeline\" />
     </ItemGroup>
 
 </Project>
