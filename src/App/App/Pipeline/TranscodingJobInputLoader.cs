@@ -1,16 +1,20 @@
 using System.Text.Json;
+using Amazon.S3;
 using App.Interfaces;
 using App.Models;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace App.Pipeline;
 
 /// <summary>
-/// Loads job input from stdin (Fargate/SFN) or a local JSON file
+/// Loads job input from stdin (Fargate/SFN), Amazon S3 (s3://bucket/key or relative key), or a local JSON file
 /// (set TRANSCODER__INPUT_FILE env var or --input-file CLI arg).
 /// </summary>
 public sealed class TranscodingJobInputLoader(
-    ILogger<TranscodingJobInputLoader> logger) : ITranscodingJobInputLoader
+    ILogger<TranscodingJobInputLoader> logger,
+    IServiceProvider serviceProvider,
+    IOptions<TranscoderOptions>? options = null) : ITranscodingJobInputLoader
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
     {
@@ -26,8 +30,40 @@ public sealed class TranscodingJobInputLoader(
 
         if (!string.IsNullOrWhiteSpace(inputPath))
         {
-            logger.LogInformation("Loading job input from file: {Path}", inputPath);
-            json = await File.ReadAllTextAsync(inputPath, ct);
+            var s3Client = serviceProvider.GetService(typeof(IAmazonS3)) as IAmazonS3;
+
+            if (inputPath.StartsWith("s3://", StringComparison.OrdinalIgnoreCase))
+            {
+                if (s3Client is null)
+                {
+                    throw new InvalidOperationException(
+                        $"Cannot load job input from '{inputPath}' because S3 storage provider is not configured.");
+                }
+
+                var uri = new Uri(inputPath);
+                var bucket = uri.Host;
+                var key = uri.AbsolutePath.TrimStart('/');
+
+                logger.LogInformation("Downloading job input from s3://{Bucket}/{Key}", bucket, key);
+                using var response = await s3Client.GetObjectAsync(bucket, key, ct);
+                using var reader = new StreamReader(response.ResponseStream);
+                json = await reader.ReadToEndAsync(ct);
+            }
+            else if (!File.Exists(inputPath) && s3Client is not null && !string.IsNullOrWhiteSpace(options?.Value.S3.InputBucket))
+            {
+                var bucket = options.Value.S3.InputBucket;
+                var key = inputPath.TrimStart('/');
+
+                logger.LogInformation("Downloading job input from s3://{Bucket}/{Key} (InputBucket)", bucket, key);
+                using var response = await s3Client.GetObjectAsync(bucket, key, ct);
+                using var reader = new StreamReader(response.ResponseStream);
+                json = await reader.ReadToEndAsync(ct);
+            }
+            else
+            {
+                logger.LogInformation("Loading job input from file: {Path}", inputPath);
+                json = await File.ReadAllTextAsync(inputPath, ct);
+            }
         }
         else
         {

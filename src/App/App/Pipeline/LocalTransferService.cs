@@ -29,23 +29,53 @@ public sealed class LocalTransferService(ILogger<LocalTransferService> logger) :
     {
         ct.ThrowIfCancellationRequested();
 
-        logger.LogInformation("Local copy directory: {Source} → {Dest}", localDirectory, destinationPrefix);
+        if (!Directory.Exists(localDirectory))
+        {
+            logger.LogWarning("Upload directory does not exist: {LocalDir}", localDirectory);
+            return Task.CompletedTask;
+        }
+
         Directory.CreateDirectory(destinationPrefix);
 
-        foreach (var file in Directory.GetFiles(localDirectory, "*", SearchOption.AllDirectories))
+        var files = Directory.GetFiles(localDirectory, "*", SearchOption.AllDirectories);
+        logger.LogInformation("Scanning {LocalDir} for local copy to {Dest}. Found {FileCount} files:",
+            localDirectory, destinationPrefix, files.Length);
+
+        long totalBytes = 0;
+        foreach (var file in files)
         {
+            var fileInfo = new FileInfo(file);
+            var relativePath = Path.GetRelativePath(localDirectory, file);
+            totalBytes += fileInfo.Length;
+            logger.LogDebug("  [Discovered] {RelativePath} ({Bytes:N0} bytes)", relativePath, fileInfo.Length);
+        }
+
+        logger.LogInformation("Total output size: {TotalBytes:N0} bytes across {FileCount} files", totalBytes, files.Length);
+
+        var completedCount = 0;
+        foreach (var file in files)
+        {
+            ct.ThrowIfCancellationRequested();
+
             var relativePath = Path.GetRelativePath(localDirectory, file);
             var destPath = Path.Combine(destinationPrefix, relativePath);
+            var fileInfo = new FileInfo(file);
 
             var fileDir = Path.GetDirectoryName(destPath);
             if (!string.IsNullOrEmpty(fileDir))
                 Directory.CreateDirectory(fileDir);
 
+            logger.LogDebug("[Local Copy Starting] {RelativePath} ({Bytes:N0} bytes) → {DestPath}",
+                relativePath, fileInfo.Length, destPath);
+
             File.Copy(file, destPath, overwrite: true);
+
+            completedCount++;
+            logger.LogDebug("[Local Copy Complete] ({Done}/{Total}) {RelativePath} → {DestPath}",
+                completedCount, files.Length, relativePath, destPath);
         }
 
-        var fileCount = Directory.GetFiles(localDirectory, "*", SearchOption.AllDirectories).Length;
-        logger.LogInformation("Local copy complete: {FileCount} files to {Dest}", fileCount, destinationPrefix);
+        logger.LogInformation("Local copy complete: {FileCount} files to {Dest}", files.Length, destinationPrefix);
         return Task.CompletedTask;
     }
 }

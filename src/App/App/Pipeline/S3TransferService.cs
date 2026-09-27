@@ -37,21 +37,65 @@ public sealed class S3TransferService(
     public async Task UploadDirectoryAsync(string localDirectory, string destinationPrefix, CancellationToken ct)
     {
         var bucket = options.Value.S3.OutputBucket;
-        var fileCount = Directory.GetFiles(localDirectory, "*", SearchOption.AllDirectories).Length;
-        logger.LogInformation("Uploading {FileCount} files → s3://{Bucket}/{Prefix}",
-            fileCount, bucket, destinationPrefix);
+        var prefix = destinationPrefix?.Trim('/') ?? string.Empty;
 
-        var request = new TransferUtilityUploadDirectoryRequest
+        if (!Directory.Exists(localDirectory))
         {
-            Directory = localDirectory,
-            BucketName = bucket,
-            KeyPrefix = destinationPrefix,
-            UploadFilesConcurrently = true
-        };
+            logger.LogWarning("Upload directory does not exist: {LocalDir}", localDirectory);
+            return;
+        }
 
-        await _transferUtility.UploadDirectoryAsync(request, ct);
+        var files = Directory.GetFiles(localDirectory, "*", SearchOption.AllDirectories);
+
+        logger.LogInformation("Scanning {LocalDir} for upload to s3://{Bucket}/{Prefix}. Found {FileCount} files:",
+            localDirectory, bucket, prefix, files.Length);
+
+        long totalBytes = 0;
+        foreach (var file in files)
+        {
+            var fileInfo = new FileInfo(file);
+            var relativePath = Path.GetRelativePath(localDirectory, file).Replace('\\', '/');
+            totalBytes += fileInfo.Length;
+            logger.LogDebug("  [Discovered] {RelativePath} ({Bytes:N0} bytes)", relativePath, fileInfo.Length);
+        }
+
+        logger.LogInformation("Total output size: {TotalBytes:N0} bytes across {FileCount} files", totalBytes, files.Length);
+
+        var completedCount = 0;
+
+        await Parallel.ForEachAsync(files, new ParallelOptions { MaxDegreeOfParallelism = 10, CancellationToken = ct }, async (file, token) =>
+        {
+            var relativePath = Path.GetRelativePath(localDirectory, file).Replace('\\', '/');
+            var key = string.IsNullOrEmpty(prefix) ? relativePath : $"{prefix}/{relativePath}";
+            var fileInfo = new FileInfo(file);
+
+            logger.LogDebug("[Upload Starting] {RelativePath} ({Bytes:N0} bytes) → s3://{Bucket}/{Key}",
+                relativePath, fileInfo.Length, bucket, key);
+
+            try
+            {
+                var request = new TransferUtilityUploadRequest
+                {
+                    FilePath = file,
+                    BucketName = bucket,
+                    Key = key
+                };
+
+                await _transferUtility.UploadAsync(request, token);
+
+                var done = Interlocked.Increment(ref completedCount);
+                logger.LogDebug("[Upload Complete] ({Done}/{Total}) {RelativePath} → s3://{Bucket}/{Key}",
+                    done, files.Length, relativePath, bucket, key);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "[Upload Failed] {RelativePath} → s3://{Bucket}/{Key}: {Message}",
+                    relativePath, bucket, key, ex.Message);
+                throw;
+            }
+        });
 
         logger.LogInformation("Upload complete: {FileCount} files to s3://{Bucket}/{Prefix}",
-            fileCount, bucket, destinationPrefix);
+            files.Length, bucket, prefix);
     }
 }

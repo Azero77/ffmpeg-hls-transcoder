@@ -94,10 +94,14 @@ public sealed class ShakaPackager(
             "--fragment_duration", settings.FragmentLengthSeconds.ToString()
         ]);
 
-        // --- Encryption (raw key CENC) ---
+        // --- Encryption (raw key ClearKey / SAMPLE-AES) ---
         if (encryption is not null)
         {
             args.Add("--enable_raw_key_encryption");
+            args.Add("--protection_scheme");
+            args.Add("cbcs");
+            args.Add("--clear_lead");
+            args.Add("0");
             args.Add("--keys");
             args.Add(string.Join(",",
                 $"label=HD:key_id={encryption.KeyId}:key={encryption.Key}",

@@ -5,7 +5,10 @@ FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 
 # Install prerequisites for Native AOT compilation
-RUN apt-get update && \
+RUN echo 'Acquire::ForceIPv4 "true";' > /etc/apt/apt.conf.d/99force-ipv4 && \
+    echo 'Acquire::Retries "5";' >> /etc/apt/apt.conf.d/99force-ipv4 && \
+    echo 'Acquire::http::Timeout "120";' >> /etc/apt/apt.conf.d/99force-ipv4 && \
+    apt-get update && \
     apt-get install -y --no-install-recommends \
         clang \
         zlib1g-dev && \
@@ -25,7 +28,10 @@ RUN dotnet publish -c Release -o /app/publish --no-restore
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
 
 # --- Install FFmpeg ---
-RUN apt-get update && \
+RUN echo 'Acquire::ForceIPv4 "true";' > /etc/apt/apt.conf.d/99force-ipv4 && \
+    echo 'Acquire::Retries "5";' >> /etc/apt/apt.conf.d/99force-ipv4 && \
+    echo 'Acquire::http::Timeout "120";' >> /etc/apt/apt.conf.d/99force-ipv4 && \
+    apt-get update && \
     apt-get install -y --no-install-recommends \
         ffmpeg \
         wget \
