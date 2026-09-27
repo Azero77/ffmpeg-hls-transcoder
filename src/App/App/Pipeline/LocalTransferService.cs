@@ -22,6 +22,7 @@ public sealed class LocalTransferService(ILogger<LocalTransferService> logger) :
         File.Copy(sourcePath, destinationFilePath, overwrite: true);
 
         logger.LogInformation("Local copy complete: {Bytes:N0} bytes", new FileInfo(destinationFilePath).Length);
+        
         return Task.CompletedTask;
     }
 

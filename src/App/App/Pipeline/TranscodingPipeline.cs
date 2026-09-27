@@ -15,21 +15,32 @@ public sealed class TranscodingPipeline(
     ITranscoder encoder,
     IPackager packager,
     IThumbnailGenerator thumbnailGenerator,
+    IProgressNotifier progressNotifier,
     ILogger<TranscodingPipeline> logger) : ITranscodingPipeline
 {
+    private static readonly Dictionary<string, int> StageWeights = new()
+    {
+        { "Download", 10 },
+        { "Encode", 60 },
+        { "Thumbnail", 5 },
+        { "Package", 5 },
+        { "Upload", 20 }
+    };
+
     public async Task<ExitReason> ExecuteAsync(TranscodingJobInput job, CancellationToken ct)
     {
         var totalSw = Stopwatch.StartNew();
         using var workspace = new Workspace(job.VideoId);
         workspace.Create();
 
+        // 1 Milestone message for the entire FFmpeg task
+        await progressNotifier.NotifyAsync(job.TenantId, job.VideoId, "transcoding", "IN_PROGRESS", 0);
+
         try
         {
-            // 1. Download source
-            await RunStage("Download", job.VideoId, ct, () =>
+            await RunStage("Download", job, ct, () =>
                 transferService.DownloadAsync(job.SourcePath, workspace.SourceFile, ct));
 
-            // 2. Filter rendition ladder to source resolution
             var renditions = RenditionLadder.Filter(
                 job.Settings.Outputs,
                 job.SourceMetadata.SourceWidth,
@@ -40,17 +51,15 @@ public sealed class TranscodingPipeline(
                 renditions.Count, job.VideoId,
                 string.Join(", ", renditions.Select(r => $"{r.Width}x{r.Height}")));
 
-            // 3. Encode all renditions (parallel per FFmpegTranscoder)
-            await RunStage("Encode", job.VideoId, ct, () =>
+            await RunStage("Encode", job, ct, () =>
                 encoder.EncodeAsync(
                     workspace.SourceFile,
                     workspace.IntermediatesDirectory,
                     renditions, ct));
 
-            // 4. Thumbnail — only if no existing thumbnail URL was provided
             if (string.IsNullOrWhiteSpace(job.ThumbnailRelativeUrl))
             {
-                await RunStage("Thumbnail", job.VideoId, ct, () =>
+                await RunStage("Thumbnail", job, ct, () =>
                     thumbnailGenerator.GenerateAsync(
                         workspace.SourceFile,
                         workspace.ThumbnailFile,
@@ -63,8 +72,7 @@ public sealed class TranscodingPipeline(
                     job.VideoId, job.ThumbnailRelativeUrl);
             }
 
-            // 5. Package CMAF/fMP4 HLS (+ encryption if configured)
-            await RunStage("Package", job.VideoId, ct, () =>
+            await RunStage("Package", job, ct, () =>
                 packager.PackageAsync(
                     workspace.IntermediatesDirectory,
                     workspace.OutputDirectory,
@@ -73,8 +81,7 @@ public sealed class TranscodingPipeline(
                     job.Encryption,
                     ct));
 
-            // 6. Upload output
-            await RunStage("Upload", job.VideoId, ct, () =>
+            await RunStage("Upload", job, ct, () =>
                 transferService.UploadDirectoryAsync(
                     workspace.OutputDirectory,
                     job.OutputPrefix, ct));
@@ -101,30 +108,30 @@ public sealed class TranscodingPipeline(
     }
 
     private async Task RunStage(
-        string stageName, Guid videoId,
+        string stageName, TranscodingJobInput job,
         CancellationToken ct, Func<Task> action)
     {
         var sw = Stopwatch.StartNew();
-        logger.LogInformation("[{Stage}] Starting for {VideoId}", stageName, videoId);
+        logger.LogInformation("[{Stage}] Starting for {VideoId}", stageName, job.VideoId);
 
         try
         {
             await action();
             sw.Stop();
             logger.LogInformation("[{Stage}] Completed for {VideoId} in {ElapsedSeconds:N1}s",
-                stageName, videoId, sw.Elapsed.TotalSeconds);
+                stageName, job.VideoId, sw.Elapsed.TotalSeconds);
         }
         catch (OperationCanceledException)
         {
             logger.LogWarning("[{Stage}] Cancelled for {VideoId} after {ElapsedSeconds:N1}s",
-                stageName, videoId, sw.Elapsed.TotalSeconds);
+                stageName, job.VideoId, sw.Elapsed.TotalSeconds);
             throw;
         }
         catch (Exception ex)
         {
             sw.Stop();
             logger.LogError(ex, "[{Stage}] Failed for {VideoId} after {ElapsedSeconds:N1}s",
-                stageName, videoId, sw.Elapsed.TotalSeconds);
+                stageName, job.VideoId, sw.Elapsed.TotalSeconds);
             throw;
         }
     }

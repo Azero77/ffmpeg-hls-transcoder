@@ -28,6 +28,8 @@ public sealed class TranscoderOptions
 
     /// <summary>Seek position (seconds) for thumbnail generation.</summary>
     public int ThumbnailSeekSeconds { get; set; } = 5;
+
+    public string ProgressQueueUrl {get;set;} = null!;
 }
 
 public sealed class S3Options

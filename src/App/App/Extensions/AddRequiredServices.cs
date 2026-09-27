@@ -43,6 +43,8 @@ public static class ServiceCollectionExtensions
         }
 
         // Pipeline services
+        services.AddAWSService<Amazon.SQS.IAmazonSQS>();
+        services.AddSingleton<IProgressNotifier, ProgressNotifier>();
         services.AddSingleton<ITranscoder, FFmpegTranscoder>();
         services.AddSingleton<IPackager, ShakaPackager>();
         services.AddSingleton<IThumbnailGenerator, FFmpegThumbnailGenerator>();
