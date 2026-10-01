@@ -14,7 +14,9 @@ RUN echo 'Acquire::ForceIPv4 "true";' > /etc/apt/apt.conf.d/99force-ipv4 && \
         zlib1g-dev && \
     rm -rf /var/lib/apt/lists/*
 
-# Copy project file first for layer caching
+# Copy project file, nuget.config, and LocalPackages first for layer caching
+COPY nuget.config ./
+COPY LocalPackages/ ./LocalPackages/
 COPY App.csproj ./
 RUN dotnet restore
 

@@ -25,7 +25,7 @@
     </ItemGroup>
 
     <ItemGroup>
-      <ProjectReference Include="..\..\..\..\AlphaZeroLearningAcademy\src\shared\AlphaZero.ImageProcessing\AlphaZero.ImageProcessing.csproj" />
+      <PackageReference Include="alphazero.imageprocessing" Version="1.0.0" />
     </ItemGroup>
 
 </Project>
