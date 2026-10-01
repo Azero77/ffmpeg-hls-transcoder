@@ -26,18 +26,45 @@ public sealed class ShakaPackager(
     {
         Directory.CreateDirectory(outputDir);
 
-        var args = BuildArguments(intermediatesDir, outputDir, renditions, settings, encryption);
+        var firstRendition = renditions[0];
+        var audioInputProbe = Path.Combine(intermediatesDir, $"{firstRendition.NameModifier.TrimStart('_')}.mp4");
+        bool hasAudio = false;
+        try
+        {
+            var probeOutput = new StringBuilder();
+            await Cli.Wrap(options.Value.PackagerBinaryPath)
+                .WithArguments($"in={audioInputProbe} --dump_stream_info")
+                .WithValidation(CommandResultValidation.None)
+                .WithStandardOutputPipe(PipeTarget.ToStringBuilder(probeOutput))
+                .WithStandardErrorPipe(PipeTarget.ToStringBuilder(probeOutput))
+                .ExecuteAsync(ct);
 
-        logger.LogInformation("Shaka Packager starting with {RenditionCount} streams", renditions.Count);
+            hasAudio = probeOutput.ToString().Contains("type: Audio", StringComparison.OrdinalIgnoreCase);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Failed to probe {AudioInput} for audio streams using packager. Assuming audio exists.", audioInputProbe);
+            hasAudio = true;
+        }
+
+        var args = BuildArguments(intermediatesDir, outputDir, renditions, settings, encryption, hasAudio);
+
+        logger.LogInformation("Shaka Packager starting with {RenditionCount} streams (HasAudio: {HasAudio})", renditions.Count, hasAudio);
         logger.LogDebug("Packager args (redacted): {Args}", RedactArgs(args));
 
         var stdErrBuffer = new StringBuilder();
 
-        await Cli.Wrap(options.Value.PackagerBinaryPath)
+        var result = await Cli.Wrap(options.Value.PackagerBinaryPath)
             .WithArguments(args)
+            .WithValidation(CommandResultValidation.None)
             .WithStandardErrorPipe(PipeTarget.ToStringBuilder(stdErrBuffer))
             .WithWorkingDirectory(outputDir)
             .ExecuteAsync(ct);
+
+        if (result.ExitCode != 0)
+        {
+            throw new InvalidOperationException($"Shaka Packager failed with exit code {result.ExitCode}. Stderr: {stdErrBuffer}");
+        }
 
         logger.LogInformation("Shaka Packager completed successfully");
 
@@ -50,7 +77,8 @@ public sealed class ShakaPackager(
         string outputDir,
         IReadOnlyList<Rendition> renditions,
         TranscodeSettings settings,
-        EncryptionSettings? encryption)
+        EncryptionSettings? encryption,
+        bool hasAudio)
     {
         var args = new List<string>();
 
@@ -72,19 +100,22 @@ public sealed class ShakaPackager(
         }
 
         // --- Audio stream descriptor (from first rendition's file) ---
-        var firstRendition = renditions[0];
-        var audioInput = Path.Combine(intermediatesDir,
-            $"{firstRendition.NameModifier.TrimStart('_')}.mp4");
+        if (hasAudio)
+        {
+            var firstRendition = renditions[0];
+            var audioInput = Path.Combine(intermediatesDir,
+                $"{firstRendition.NameModifier.TrimStart('_')}.mp4");
 
-        args.Add(string.Join(",",
-            $"in={audioInput}",
-            "stream=audio",
-            "init_segment=audio/init.mp4",
-            "segment_template=audio/$Number$.m4s",
-            "playlist_name=audio.m3u8",
-            "hls_group_id=audio",
-            "hls_name=English",
-            "drm_label=AUDIO"));
+            args.Add(string.Join(",",
+                $"in={audioInput}",
+                "stream=audio",
+                "init_segment=audio/init.mp4",
+                "segment_template=audio/$Number$.m4s",
+                "playlist_name=audio.m3u8",
+                "hls_group_id=audio",
+                "hls_name=English",
+                "drm_label=AUDIO"));
+        }
 
         // --- HLS output flags ---
         args.AddRange([

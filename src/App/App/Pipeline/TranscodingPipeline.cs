@@ -18,15 +18,6 @@ public sealed class TranscodingPipeline(
     IProgressNotifier progressNotifier,
     ILogger<TranscodingPipeline> logger) : ITranscodingPipeline
 {
-    private static readonly Dictionary<string, int> StageWeights = new()
-    {
-        { "Download", 10 },
-        { "Encode", 60 },
-        { "Thumbnail", 5 },
-        { "Package", 5 },
-        { "Upload", 20 }
-    };
-
     public async Task<ExitReason> ExecuteAsync(TranscodingJobInput job, CancellationToken ct)
     {
         var totalSw = Stopwatch.StartNew();
@@ -34,7 +25,7 @@ public sealed class TranscodingPipeline(
         workspace.Create();
 
         // 1 Milestone message for the entire FFmpeg task
-        await progressNotifier.NotifyAsync(job.TenantId, job.VideoId, "transcoding", "IN_PROGRESS", 0);
+        await progressNotifier.NotifyAsync(job.TenantId, job.VideoId, "transcoding", "IN_PROGRESS");
 
         try
         {

@@ -9,7 +9,7 @@ namespace App.Pipeline;
 
 public interface IProgressNotifier
 {
-    Task NotifyAsync(Guid tenantId, Guid videoId, string stage, string status, int? percentage = null);
+    Task NotifyAsync(Guid tenantId, Guid videoId, string stage, string status);
 }
 
 public class ProgressMessage
@@ -18,7 +18,6 @@ public class ProgressMessage
     public string TenantId { get; set; } = "";
     public string Stage { get; set; } = "";
     public string Status { get; set; } = "";
-    public int? Percentage { get; set; }
 }
 
 [System.Text.Json.Serialization.JsonSerializable(typeof(ProgressMessage))]
@@ -37,7 +36,7 @@ public class ProgressNotifier : IProgressNotifier
         _queueUrl = options.Value.ProgressQueueUrl ?? throw new ArgumentException("Sqs Settings is not defined");
     }
 
-    public async Task NotifyAsync(Guid tenantId, Guid videoId, string stage, string status, int? percentage = null)
+    public async Task NotifyAsync(Guid tenantId, Guid videoId, string stage, string status)
     {
 
         var message = new ProgressMessage
@@ -45,8 +44,7 @@ public class ProgressNotifier : IProgressNotifier
             VideoId = videoId.ToString(),
             TenantId = tenantId.ToString(),
             Stage = stage,
-            Status = status,
-            Percentage = percentage
+            Status = status
         };
 
         var request = new SendMessageRequest
@@ -58,7 +56,7 @@ public class ProgressNotifier : IProgressNotifier
         try
         {
             await _sqsClient.SendMessageAsync(request);
-            _logger.LogDebug("Sent progress {Percentage}% for {Stage} {VideoId}", percentage, stage, videoId);
+            _logger.LogDebug("Sent progress for {Stage} {VideoId}", stage, videoId);
         }
         catch (Exception ex)
         {
