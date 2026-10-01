@@ -17,4 +17,7 @@ public interface ITransferService
     /// <param name="destinationPrefix">S3 prefix or local directory, depending on provider.</param>
     /// <param name="ct">Cancellation token.</param>
     Task UploadDirectoryAsync(string localDirectory, string destinationPrefix, CancellationToken ct);
+
+    /// <summary>Find the exact path/key of a file given a prefix (useful for unknown extensions).</summary>
+    Task<string?> FindFileByPrefixAsync(string prefix, CancellationToken ct);
 }

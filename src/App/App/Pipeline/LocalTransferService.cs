@@ -79,4 +79,14 @@ public sealed class LocalTransferService(ILogger<LocalTransferService> logger) :
         logger.LogInformation("Local copy complete: {FileCount} files to {Dest}", files.Length, destinationPrefix);
         return Task.CompletedTask;
     }
+
+    public Task<string?> FindFileByPrefixAsync(string prefix, CancellationToken ct)
+    {
+        var dir = Path.GetDirectoryName(prefix);
+        if (string.IsNullOrEmpty(dir) || !Directory.Exists(dir)) return Task.FromResult<string?>(null);
+
+        var name = Path.GetFileName(prefix);
+        var files = Directory.GetFiles(dir, name + ".*");
+        return Task.FromResult(files.FirstOrDefault());
+    }
 }

@@ -50,6 +50,8 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IThumbnailGenerator, FFmpegThumbnailGenerator>();
         services.AddSingleton<ITranscodingJobInputLoader, TranscodingJobInputLoader>();
         services.AddSingleton<ITranscodingPipeline, TranscodingPipeline>();
+        services.AddSingleton<AlphaZero.ImageProcessing.IImageScaler, AlphaZero.ImageProcessing.ImageSharpScaler>();
+        services.AddSingleton<IImageThumbnailProcessor, ImageThumbnailProcessor>();
 
         return services;
     }

@@ -98,4 +98,17 @@ public sealed class S3TransferService(
         logger.LogInformation("Upload complete: {FileCount} files to s3://{Bucket}/{Prefix}",
             files.Length, bucket, prefix);
     }
+
+    public async Task<string?> FindFileByPrefixAsync(string prefix, CancellationToken ct)
+    {
+        var request = new Amazon.S3.Model.ListObjectsV2Request
+        {
+            BucketName = options.Value.S3.InputBucket,
+            Prefix = prefix,
+            MaxKeys = 1
+        };
+
+        var response = await s3Client.ListObjectsV2Async(request, ct);
+        return response.S3Objects.FirstOrDefault()?.Key;
+    }
 }

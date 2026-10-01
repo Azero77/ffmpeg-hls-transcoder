@@ -15,7 +15,8 @@ public sealed class Workspace : IDisposable
     public string SourceFile => Path.Combine(CurrentDir, "source.mp4");
     public string IntermediatesDirectory => Path.Combine(CurrentDir, "intermediates");
     public string OutputDirectory => Path.Combine(CurrentDir, "output");
-    public string ThumbnailFile => Path.Combine(OutputDirectory, "poster.jpg");
+    public string ThumbnailFile => Path.Combine(OutputDirectory, "thumbnail.jpeg");
+    public string RawThumbnailFile => Path.Combine(IntermediatesDirectory, "raw_thumbnail.jpg");
 
     public Workspace(Guid videoId)
     {

@@ -29,6 +29,10 @@ public sealed class TranscoderOptions
     /// <summary>Seek position (seconds) for thumbnail generation.</summary>
     public int ThumbnailSeekSeconds { get; set; } = 5;
 
+    public int ThumbnailWidth { get; set; } = 1280;
+    public int ThumbnailHeight { get; set; } = 720;
+    public int ThumbnailJpegQuality { get; set; } = 85;
+
     public string ProgressQueueUrl {get;set;} = null!;
 }
 

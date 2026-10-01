@@ -15,6 +15,7 @@ public sealed class TranscodingPipeline(
     ITranscoder encoder,
     IPackager packager,
     IThumbnailGenerator thumbnailGenerator,
+    IImageThumbnailProcessor thumbnailProcessor,
     IProgressNotifier progressNotifier,
     ILogger<TranscodingPipeline> logger) : ITranscodingPipeline
 {
@@ -50,17 +51,49 @@ public sealed class TranscodingPipeline(
 
             if (string.IsNullOrWhiteSpace(job.ThumbnailRelativeUrl))
             {
-                await RunStage("Thumbnail", job, ct, () =>
-                    thumbnailGenerator.GenerateAsync(
+                await RunStage("Thumbnail_Extract", job, ct, async () =>
+                {
+                    await thumbnailGenerator.GenerateAsync(
                         workspace.SourceFile,
+                        workspace.RawThumbnailFile,
+                        job.SourceMetadata.Duration,
+                        ct);
+                        
+                    await thumbnailProcessor.ProcessAsync(
+                        workspace.RawThumbnailFile,
                         workspace.ThumbnailFile,
-                        ct));
+                        ct);
+                });
             }
             else
             {
-                logger.LogInformation(
-                    "Skipping thumbnail generation for {VideoId} — existing thumbnail: {Url}",
-                    job.VideoId, job.ThumbnailRelativeUrl);
+                await RunStage("Thumbnail_Custom", job, ct, async () =>
+                {
+                    logger.LogInformation("Looking up custom thumbnail for {VideoId} with prefix: {Url}",
+                        job.VideoId, job.ThumbnailRelativeUrl);
+                        
+                    var customThumbnailKey = await transferService.FindFileByPrefixAsync(job.ThumbnailRelativeUrl, ct);
+                    
+                    if (string.IsNullOrEmpty(customThumbnailKey))
+                    {
+                        logger.LogWarning("Custom thumbnail not found for {VideoId}. Falling back to default extraction.", job.VideoId);
+                        await thumbnailGenerator.GenerateAsync(
+                            workspace.SourceFile,
+                            workspace.RawThumbnailFile,
+                            job.SourceMetadata.Duration,
+                            ct);
+                    }
+                    else
+                    {
+                        logger.LogInformation("Downloading custom thumbnail {Key} -> {Local}", customThumbnailKey, workspace.RawThumbnailFile);
+                        await transferService.DownloadAsync(customThumbnailKey, workspace.RawThumbnailFile, ct);
+                    }
+
+                    await thumbnailProcessor.ProcessAsync(
+                        workspace.RawThumbnailFile,
+                        workspace.ThumbnailFile,
+                        ct);
+                });
             }
 
             await RunStage("Package", job, ct, () =>

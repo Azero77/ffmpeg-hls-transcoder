@@ -24,4 +24,8 @@
       <PackageReference Include="Microsoft.Extensions.Hosting" Version="11.0.0-rc.1.26425.128" />
     </ItemGroup>
 
+    <ItemGroup>
+      <ProjectReference Include="..\..\..\..\AlphaZeroLearningAcademy\src\shared\AlphaZero.ImageProcessing\AlphaZero.ImageProcessing.csproj" />
+    </ItemGroup>
+
 </Project>

@@ -15,9 +15,9 @@ public sealed class FFmpegThumbnailGenerator(
     IOptions<TranscoderOptions> options,
     ILogger<FFmpegThumbnailGenerator> logger) : IThumbnailGenerator
 {
-    public async Task GenerateAsync(string sourceFile, string outputFile, CancellationToken ct)
+    public async Task GenerateAsync(string sourceFile, string outputFile, TimeSpan duration, CancellationToken ct)
     {
-        var seekSeconds = options.Value.ThumbnailSeekSeconds;
+        var seekSeconds = Math.Max(1, (int)(duration.TotalSeconds * 0.1));
 
         logger.LogInformation("Generating thumbnail at {SeekSeconds}s from {Source}",
             seekSeconds, sourceFile);
