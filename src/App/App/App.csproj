@@ -5,7 +5,7 @@
         <TargetFramework>net10.0</TargetFramework>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
-        <PublishAot>true</PublishAot>
+        
         <InvariantGlobalization>true</InvariantGlobalization>
         <EnableConfigurationBindingGenerator>true</EnableConfigurationBindingGenerator>
         <DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
@@ -25,7 +25,7 @@
     </ItemGroup>
 
     <ItemGroup>
-      <PackageReference Include="alphazero.imageprocessing" Version="1.0.0" />
+      <PackageReference Include="alphazero.imageprocessing" Version="1.0.1" />
     </ItemGroup>
 
 </Project>
